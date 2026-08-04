@@ -34,6 +34,8 @@ ha_load_libraries() {
         "logger.sh"
         "ui.sh"
         "common.sh"
+        "config.sh"
+        "status.sh"
     )
 
     local library
