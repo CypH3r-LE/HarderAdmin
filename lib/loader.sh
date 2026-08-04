@@ -16,7 +16,7 @@ readonly HA_MODULE_DIR
 ha_load_library() {
 
     local library="$1"
-
+    echo "DEBUG loading: ${library}"
     if [[ ! -f "${HA_LIB_DIR}/${library}" ]]; then
         printf "%s\n" "Missing library: ${library}" >&2
         exit 1
@@ -37,6 +37,7 @@ ha_load_libraries() {
         "config.sh"
         "status.sh"
         "checks.sh"
+        "dashboard.sh"
         "menu.sh"
     )
 

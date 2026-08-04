@@ -48,9 +48,9 @@ main() {
 
     ha_init
 
-    ha_menu_main
-
     ha_log_info "HarderAdmin started."
+
+    ha_dashboard_start
 
     }
 

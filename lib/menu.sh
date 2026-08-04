@@ -12,12 +12,6 @@ ha_menu_main() {
 
     while true; do
 
-        clear
-
-        ha_draw_header
-
-        echo
-
         ha_ui_section "Main Menu"
 
         ha_ui_menu_item 1 "System Hardening"
