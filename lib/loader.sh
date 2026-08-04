@@ -48,6 +48,28 @@ ha_load_libraries() {
     done
 }
 
+ha_load_checks() {
+
+    local checks_dir="${HA_LIB_DIR}/checks"
+
+    if [[ ! -d "${checks_dir}" ]]; then
+        return 0
+    fi
+
+
+    local check_file
+
+    for check_file in "${checks_dir}"/*.sh; do
+
+        if [[ -f "${check_file}" ]]; then
+
+            # shellcheck disable=SC1090
+            source "${check_file}"
+
+        fi
+
+    done
+}
 
 ha_load_modules() {
 
