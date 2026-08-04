@@ -5,6 +5,11 @@
 # colors.sh
 # ==============================================================================
 
+# Colors and icons are exported as framework constants.
+# They are consumed by other sourced libraries.
+
+# shellcheck disable=SC2034
+
 readonly HA_COLOR_RESET="\033[0m"
 
 readonly HA_COLOR_RED="\033[0;31m"

@@ -16,8 +16,8 @@
 
 set -Eeuo pipefail
 
-readonly HA_VERSION_FILE="VERSION"
-readonly HA_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HA_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly HA_ROOT_DIR
 readonly HA_LOADER="${HA_ROOT_DIR}/lib/loader.sh"
 
 # ------------------------------------------------------------------------------
