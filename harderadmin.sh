@@ -17,18 +17,27 @@
 set -Eeuo pipefail
 
 readonly HA_VERSION_FILE="VERSION"
-readonly HA_LIB_DIR="lib"
-readonly HA_CONFIG_DIR="config"
-readonly HA_MODULE_DIR="modules"
+readonly HA_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly HA_LOADER="${HA_ROOT_DIR}/lib/loader.sh"
 
 # ------------------------------------------------------------------------------
-# Load libraries
+# Load loader
 # ------------------------------------------------------------------------------
 
-source "${HA_LIB_DIR}/colors.sh"
-source "${HA_LIB_DIR}/logger.sh"
-source "${HA_LIB_DIR}/ui.sh"
-source "${HA_LIB_DIR}/common.sh"
+if [[ ! -f "${HA_LOADER}" ]]; then
+    printf "ERROR: Loader not found: %s\n" "${HA_LOADER}" >&2
+    exit 1
+fi
+
+# shellcheck disable=SC1090
+source "${HA_LOADER}"
+
+
+# ------------------------------------------------------------------------------
+# Load framework
+# ------------------------------------------------------------------------------
+
+ha_load_libraries
 
 # ------------------------------------------------------------------------------
 # Main
