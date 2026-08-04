@@ -8,9 +8,11 @@
 
 HA_LIB_DIR="${HA_ROOT_DIR}/lib"
 HA_MODULE_DIR="${HA_ROOT_DIR}/modules"
+HA_TASK_DIR="${HA_ROOT_DIR}/tasks"
 
 readonly HA_LIB_DIR
 readonly HA_MODULE_DIR
+readonly HA_TASK_DIR
 
 
 ha_load_library() {
@@ -36,6 +38,8 @@ ha_load_libraries() {
         "common.sh"
         "config.sh"
         "status.sh"
+        "task_registry.sh"
+        task_runner.sh
         "checks.sh"
         "dashboard.sh"
         "menu.sh"
@@ -73,12 +77,40 @@ ha_load_checks() {
 
 ha_load_modules() {
 
-    if [[ ! -d "${HA_MODULE_DIR}" ]]; then
+    local module_dir="${HA_MODULE_DIR}"
+
+    if [[ ! -d "${module_dir}" ]]; then
         return 0
     fi
 
-    # Module loader placeholder
-    # Will be implemented in a later sprint.
 
-    return 0
+    local module
+
+    for module in "${module_dir}"/*.sh; do
+
+        if [[ -f "${module}" ]]; then
+
+            # shellcheck disable=SC1090
+            source "${module}"
+
+        fi
+
+    done
+}
+
+ha_load_tasks() {
+
+    if [[ ! -d "${HA_TASK_DIR}" ]]; then
+        return 0
+    fi
+
+    local task
+
+    while IFS= read -r -d '' task; do
+
+        # shellcheck disable=SC1090
+        source "${task}"
+
+    done < <(find "${HA_TASK_DIR}" -type f -name "*.sh" -print0)
+
 }

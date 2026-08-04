@@ -39,6 +39,8 @@ source "${HA_LOADER}"
 
 ha_load_libraries
 ha_load_checks
+ha_load_tasks
+ha_load_modules
 ha_config_load
 
 # ------------------------------------------------------------------------------

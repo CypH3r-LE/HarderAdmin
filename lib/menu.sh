@@ -32,8 +32,7 @@ ha_menu_main() {
         case "${choice}" in
 
             1)
-                ha_ui_info "System Hardening module not available yet."
-                ha_pause
+                ha_module_system_hardening_menu
                 ;;
 
             2)
