@@ -18,6 +18,7 @@ ha_config_load() {
 
     # shellcheck disable=SC1090
     sed -i 's/\r$//' "${HA_CONFIG_FILE}"
+    # shellcheck disable=SC1090
     source "${HA_CONFIG_FILE}"
 
     ha_log_debug "Configuration loaded."
