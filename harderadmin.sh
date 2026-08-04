@@ -48,11 +48,10 @@ main() {
 
     ha_init
 
-    ha_draw_header
+    ha_menu_main
 
     ha_log_info "HarderAdmin started."
 
-    ha_pause
-}
+    }
 
 main "$@"

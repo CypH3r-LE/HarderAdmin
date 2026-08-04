@@ -36,6 +36,7 @@ ha_load_libraries() {
         "common.sh"
         "config.sh"
         "status.sh"
+        "menu.sh"
     )
 
     local library
