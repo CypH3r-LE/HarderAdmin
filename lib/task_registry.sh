@@ -130,3 +130,20 @@ ha_task_get_rollback() {
     printf "%s" "${HA_TASK_ROLLBACK[$id]}"
 
 }
+
+
+ha_task_get_by_category() {
+
+    local category="$1"
+    local id
+
+    for id in "${HA_TASK_IDS[@]}"; do
+
+        if [[ "${HA_TASK_CATEGORY[$id]}" == "${category}" ]]; then
+
+            printf "%s\n" "${id}"
+
+        fi
+
+    done
+}

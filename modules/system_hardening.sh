@@ -10,6 +10,9 @@
 ha_module_system_hardening_menu() {
 
     local choice
+    local task_ids=()
+    local task_id
+    local index
 
     while true; do
 
@@ -20,11 +23,26 @@ ha_module_system_hardening_menu() {
         ha_ui_section "System Hardening"
 
 
-        ha_ui_menu_item 1 "System updates"
-        ha_ui_menu_item 2 "Automatic security updates"
-        ha_ui_menu_item 3 "Remove unused packages"
-        ha_ui_menu_item 4 "Kernel hardening"
-        ha_ui_menu_item 5 "Review services"
+        task_ids=()
+
+        while IFS= read -r task_id; do
+
+            task_ids+=("${task_id}")
+
+        done < <(ha_task_get_by_category "System")
+
+
+        index=1
+
+        for task_id in "${task_ids[@]}"; do
+
+            ha_ui_menu_item \
+                "${index}" \
+                "${task_id} - $(ha_task_get_name "${task_id}")"
+
+            ((index++))
+
+        done
 
         echo
 
@@ -35,42 +53,25 @@ ha_module_system_hardening_menu() {
         read -rp "Select: " choice
 
 
-        case "${choice}" in
+        if [[ "${choice}" == "0" ]]; then
 
-            1)
-                ha_task_execute "SYS-001"
-                ;;
+            return 0
 
-            2)
-                ha_ui_info "Automatic updates module not implemented yet."
-                ha_pause
-                ;;
+        fi
 
-            3)
-                ha_ui_info "Package cleanup module not implemented yet."
-                ha_pause
-                ;;
 
-            4)
-                ha_ui_info "Kernel hardening module not implemented yet."
-                ha_pause
-                ;;
+        if [[ "${choice}" =~ ^[0-9]+$ ]] \
+            && (( choice >= 1 && choice <= ${#task_ids[@]} )); then
 
-            5)
-                ha_ui_info "Service review module not implemented yet."
-                ha_pause
-                ;;
+            ha_task_execute "${task_ids[$((choice-1))]}"
 
-            0)
-                return 0
-                ;;
+        else
 
-            *)
-                ha_status_fail "Invalid selection."
-                ha_pause
-                ;;
+            ha_status_fail "Invalid selection."
 
-        esac
+            ha_pause
+
+        fi
 
     done
 }
