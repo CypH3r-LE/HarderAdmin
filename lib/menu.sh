@@ -18,18 +18,19 @@ ha_menu_main() {
 
         echo
 
-        printf "%bMain Menu%b\n\n" \
-            "${HA_COLOR_WHITE}" \
-            "${HA_COLOR_RESET}"
+        ha_ui_section "Main Menu"
 
-        echo "[1] System Hardening"
-        echo "[2] SSH Security"
-        echo "[3] Firewall"
-        echo "[4] Fail2Ban"
-        echo "[5] Backups"
-        echo "[6] Reports"
+        ha_ui_menu_item 1 "System Hardening"
+        ha_ui_menu_item 2 "SSH Security"
+        ha_ui_menu_item 3 "Firewall"
+        ha_ui_menu_item 4 "Fail2Ban"
+        ha_ui_menu_item 5 "Backups"
+        ha_ui_menu_item 6 "Reports"
+
         echo
-        echo "[0] Exit"
+
+        ha_ui_menu_item 0 "Exit"
+
         echo
 
         read -rp "Select: " choice

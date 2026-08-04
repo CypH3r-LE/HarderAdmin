@@ -58,3 +58,29 @@ ha_ui_title() {
 
     ha_ui_line
 }
+
+ha_ui_menu_item() {
+
+    local number="$1"
+    local text="$2"
+
+    printf "%b[%s]%b %s\n" \
+        "${HA_COLOR_CYAN}" \
+        "${number}" \
+        "${HA_COLOR_RESET}" \
+        "${text}"
+}
+
+
+ha_ui_section() {
+
+    local title="$1"
+
+    echo
+    printf "%b%s%b\n" \
+        "${HA_COLOR_WHITE}" \
+        "${title}" \
+        "${HA_COLOR_RESET}"
+
+    ha_ui_line
+}
