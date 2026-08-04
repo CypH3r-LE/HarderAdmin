@@ -37,3 +37,24 @@ ha_ui_error() {
         "${HA_COLOR_RESET}" \
         "$1"
 }
+
+ha_ui_line() {
+
+    local width="${1:-60}"
+
+    printf "%*s\n" "${width}" "" | tr " " "-"
+}
+
+
+ha_ui_title() {
+
+    local title="$1"
+
+    echo
+    printf "%b%s%b\n" \
+        "${HA_COLOR_CYAN}" \
+        "${title}" \
+        "${HA_COLOR_RESET}"
+
+    ha_ui_line
+}
