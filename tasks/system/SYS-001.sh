@@ -25,7 +25,9 @@ ha_task_sys001_register() {
 
 ha_task_sys001_check() {
 
-    return 0
+    ha_task_set_message "System updates are ready."
+
+    return "${HA_TASK_READY}"
 }
 
 

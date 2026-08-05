@@ -11,6 +11,45 @@ ha_task_execute() {
     local id="$1"
     local execute_function
     local info_function
+    local check_function
+    local check_status
+
+
+    check_function="$(ha_task_get_check "${id}")"
+
+    if [[ -n "${check_function}" ]]; then
+
+        if "${check_function}"; then
+            check_status=0
+        else
+            check_status=$?
+        fi
+
+    fi
+
+
+    case "${check_status}" in
+
+        "${HA_TASK_COMPLETED}")
+            ha_status_ok "$(ha_task_get_message)"
+            ha_pause
+            return 0
+            ;;
+
+        "${HA_TASK_BLOCKED}")
+            ha_status_fail "$(ha_task_get_message)"
+            ha_pause
+            return 1
+            ;;
+
+        "${HA_TASK_ERROR}")
+            ha_status_fail "$(ha_task_get_message)"
+            ha_pause
+            return 1
+            ;;
+
+    esac
+
 
     info_function="$(ha_task_get_info "${id}")"
 
@@ -22,9 +61,11 @@ ha_task_execute() {
 
     fi
 
+
     if ! ha_ui_confirm "Execute task"; then
         return 0
     fi
+
 
     execute_function="$(ha_task_get_execute "${id}")"
 
