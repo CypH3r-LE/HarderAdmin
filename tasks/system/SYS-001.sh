@@ -100,7 +100,23 @@ ha_task_sys001_execute() {
 
 ha_task_sys001_verify() {
 
-    return 0
+    local updates
+
+    updates="$(apt-get -s upgrade | grep -c '^Inst ')"
+
+
+    if [[ "${updates}" -eq 0 ]]; then
+
+        ha_task_set_message "System is up to date."
+
+        return "${HA_TASK_COMPLETED}"
+
+    fi
+
+
+    ha_task_set_message "${updates} package updates still available."
+
+    return "${HA_TASK_ERROR}"
 }
 
 

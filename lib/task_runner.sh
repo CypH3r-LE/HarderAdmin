@@ -14,6 +14,8 @@ ha_task_execute() {
     local check_function
     local check_status
     local execute_status
+    local verify_function
+    local verify_status
 
 
     check_function="$(ha_task_get_check "${id}")"
@@ -80,16 +82,34 @@ fi
 case "${execute_status}" in
 
     "${HA_TASK_COMPLETED}")
-        ha_status_ok "$(ha_task_get_message)"
-        ;;
+    ha_status_ok "$(ha_task_get_message)"
 
-    "${HA_TASK_ERROR}")
-        ha_status_fail "$(ha_task_get_message)"
-        ;;
+    verify_function="$(ha_task_get_verify "${id}")"
 
-    "${HA_TASK_BLOCKED}")
-        ha_status_fail "$(ha_task_get_message)"
-        ;;
+    if [[ -n "${verify_function}" ]]; then
+
+        if "${verify_function}"; then
+            verify_status=0
+        else
+            verify_status=$?
+        fi
+
+
+        case "${verify_status}" in
+
+            "${HA_TASK_COMPLETED}")
+                ha_status_ok "$(ha_task_get_message)"
+                ;;
+
+            "${HA_TASK_ERROR}")
+                ha_status_fail "$(ha_task_get_message)"
+                ;;
+
+        esac
+
+    fi
+
+    ;;
 
 esac
 
