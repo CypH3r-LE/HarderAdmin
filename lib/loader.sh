@@ -2,7 +2,7 @@
 #
 # ==============================================================================
 # HarderAdmin
-# loader.sh
+# lib/loader.sh
 # ==============================================================================
 #
 
@@ -18,7 +18,6 @@ readonly HA_TASK_DIR
 ha_load_library() {
 
     local library="$1"
-    echo "DEBUG loading: ${library}"
     if [[ ! -f "${HA_LIB_DIR}/${library}" ]]; then
         printf "%s\n" "Missing library: ${library}" >&2
         exit 1

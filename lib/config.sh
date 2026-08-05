@@ -2,7 +2,7 @@
 #
 # ==============================================================================
 # HarderAdmin
-# config.sh
+# lib/config.sh
 # ==============================================================================
 #
 
@@ -20,6 +20,8 @@ ha_config_load() {
     sed -i 's/\r$//' "${HA_CONFIG_FILE}"
     # shellcheck disable=SC1090
     source "${HA_CONFIG_FILE}"
+
+    ha_config_load_task_status
 
     ha_log_debug "Configuration loaded."
 }
@@ -55,4 +57,10 @@ ha_config_set() {
     fi
 
     printf -v "${key}" "%s" "${value}"
+}
+
+ha_config_load_task_status() {
+
+    # shellcheck disable=SC1091
+    source "${HA_ROOT_DIR}/config/task_status.conf"
 }
