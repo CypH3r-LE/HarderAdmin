@@ -13,6 +13,7 @@ ha_task_execute() {
     local info_function
     local check_function
     local check_status
+    local execute_status
 
 
     check_function="$(ha_task_get_check "${id}")"
@@ -69,5 +70,29 @@ ha_task_execute() {
 
     execute_function="$(ha_task_get_execute "${id}")"
 
-    "${execute_function}"
+    if "${execute_function}"; then
+    execute_status=0
+else
+    execute_status=$?
+fi
+
+
+case "${execute_status}" in
+
+    "${HA_TASK_COMPLETED}")
+        ha_status_ok "$(ha_task_get_message)"
+        ;;
+
+    "${HA_TASK_ERROR}")
+        ha_status_fail "$(ha_task_get_message)"
+        ;;
+
+    "${HA_TASK_BLOCKED}")
+        ha_status_fail "$(ha_task_get_message)"
+        ;;
+
+esac
+
+
+ha_pause
 }

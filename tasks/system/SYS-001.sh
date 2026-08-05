@@ -72,9 +72,29 @@ ha_task_sys001_info() {
 
 ha_task_sys001_execute() {
 
-    ha_ui_info "Not implemented yet."
+    ha_task_set_message "Installing system updates."
 
-    ha_pause
+    if ! apt-get update; then
+
+        ha_task_set_message "Unable to update package information."
+
+        return "${HA_TASK_ERROR}"
+
+    fi
+
+
+    if ! apt-get full-upgrade -y; then
+
+        ha_task_set_message "System update failed."
+
+        return "${HA_TASK_ERROR}"
+
+    fi
+
+
+    ha_task_set_message "System updates installed successfully."
+
+    return "${HA_TASK_COMPLETED}"
 }
 
 
