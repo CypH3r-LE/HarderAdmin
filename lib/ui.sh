@@ -65,6 +65,16 @@ ha_ui_confirm() {
     done
 }
 
+ha_ui_task_header() {
+
+    local id="$1"
+    local name="$2"
+
+    ha_ui_section "Task"
+
+    printf "%s - %s\n\n" "${id}" "${name}"
+}
+
 ha_ui_line() {
 
     local width="${1:-60}"
