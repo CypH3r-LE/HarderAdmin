@@ -38,6 +38,33 @@ ha_ui_error() {
         "$1"
 }
 
+ha_ui_confirm() {
+
+    local prompt="$1"
+    local answer
+
+    while true; do
+
+        read -rp "${prompt} [y/N]: " answer
+
+        case "${answer}" in
+
+            [Yy]|[Yy][Ee][Ss])
+                return 0
+                ;;
+
+            ""|[Nn]|[Nn][Oo])
+                return 1
+                ;;
+
+            *)
+                ha_status_fail "Please answer yes or no."
+                ;;
+        esac
+
+    done
+}
+
 ha_ui_line() {
 
     local width="${1:-60}"

@@ -8,14 +8,24 @@
 ha_task_execute() {
 
     local id="$1"
+    local execute_function
+    local info_function
 
-    if [[ -z "${HA_TASK_EXECUTE[$id]:-}" ]]; then
+    info_function="$(ha_task_get_info "${id}")"
 
-        ha_status_fail "Task '${id}' is not registered."
+    if [[ -n "${info_function}" ]]; then
 
-        return 1
+        "${info_function}"
+
+        echo
 
     fi
 
-    "$(ha_task_get_execute "${id}")"
+    if ! ha_ui_confirm "Execute task"; then
+        return 0
+    fi
+
+    execute_function="$(ha_task_get_execute "${id}")"
+
+    "${execute_function}"
 }
