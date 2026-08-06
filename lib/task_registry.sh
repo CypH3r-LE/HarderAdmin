@@ -18,7 +18,7 @@ declare -Ag HA_TASK_CHECK=()
 declare -Ag HA_TASK_INFO=()
 declare -Ag HA_TASK_VERIFY=()
 declare -Ag HA_TASK_ROLLBACK=()
-
+declare -Ag HA_TASK_CORRECTION=()
 
 ha_task_register() {
 
@@ -34,6 +34,7 @@ ha_task_register() {
     local execute_function="${10}"
     local verify_function="${11}"
     local rollback_function="${12}"
+    local correction_function="${13:-}"
 
     HA_TASK_IDS+=("${id}")
 
@@ -54,6 +55,7 @@ ha_task_register() {
     HA_TASK_EXECUTE["${id}"]="${execute_function}"
     HA_TASK_VERIFY["${id}"]="${verify_function}"
     HA_TASK_ROLLBACK["${id}"]="${rollback_function}"
+    HA_TASK_CORRECTION["${id}"]="${correction_function}"
 }
 
 #------------------------------------------------------------------------------
@@ -61,6 +63,7 @@ ha_task_register() {
 #------------------------------------------------------------------------------
 
 HA_TASK_MESSAGE=""
+HA_TASK_STATUS=""
 
 ha_task_set_message() {
 
@@ -72,6 +75,19 @@ ha_task_set_message() {
 ha_task_get_message() {
 
     printf "%s" "${HA_TASK_MESSAGE}"
+
+}
+
+ha_task_set_status() {
+
+    HA_TASK_STATUS="$1"
+
+}
+
+
+ha_task_get_status() {
+
+    printf "%s" "${HA_TASK_STATUS}"
 
 }
 
@@ -147,6 +163,14 @@ ha_task_get_rollback() {
     local id="$1"
 
     printf "%s" "${HA_TASK_ROLLBACK[$id]}"
+
+}
+
+ha_task_get_correction() {
+
+    local id="$1"
+
+    printf "%s" "${HA_TASK_CORRECTION[$id]}"
 
 }
 
