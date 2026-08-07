@@ -6,6 +6,16 @@
 # ==============================================================================
 #
 
+ha_task_run_function() {
+
+    local function_name="$1"
+
+    HA_TASK_STATUS=""
+
+    "${function_name}"
+
+}
+
 ha_task_execute() {
 
     local id="$1"
@@ -16,15 +26,12 @@ ha_task_execute() {
     local correction_function
 
     check_function="$(ha_task_get_check "${id}")"
-    correction_function="$(ha_task_get_correction "${id}")"
+    
+if [[ -n "${check_function}" ]]; then
 
-    HA_TASK_STATUS=""
+    ha_task_run_function "${check_function}"
 
-    if [[ -n "${check_function}" ]]; then
-
-        "${check_function}"
-
-    fi
+fi
 
 
     case "${HA_TASK_STATUS}" in
@@ -54,7 +61,7 @@ ha_task_execute() {
 
     if [[ -n "${info_function}" ]]; then
 
-        "${info_function}"
+        ha_task_run_function "${info_function}"
 
         echo
 
@@ -68,9 +75,7 @@ ha_task_execute() {
 
     execute_function="$(ha_task_get_execute "${id}")"
 
-    HA_TASK_STATUS=""
-
-    "${execute_function}"
+    ha_task_run_function "${execute_function}"
 
     case "${HA_TASK_STATUS}" in
 
@@ -96,10 +101,7 @@ verify_function="$(ha_task_get_verify "${id}")"
 
 if [[ -n "${verify_function}" ]]; then
 
-            HA_TASK_STATUS=""
-
-            "${verify_function}"
-
+            ha_task_run_function "${verify_function}"
 
             case "${HA_TASK_STATUS}" in
 
@@ -114,8 +116,6 @@ if [[ -n "${verify_function}" ]]; then
 
                     if [[ -n "${correction_function}" ]] && ha_ui_confirm "Apply correction"; then
 
-                        HA_TASK_STATUS=""
-
                         ha_task_run_correction "${id}"
 
                         case "${HA_TASK_STATUS}" in
@@ -127,11 +127,9 @@ if [[ -n "${verify_function}" ]]; then
 
                                 if [[ -n "${verify_function}" ]]; then
 
-                                    HA_TASK_STATUS=""
+                                ha_task_run_function "${verify_function}"
 
-                                    "${verify_function}"
-
-                                    case "${HA_TASK_STATUS}" in
+                                case "${HA_TASK_STATUS}" in
 
                                         "${HA_TASK_COMPLETED}")
                                             ha_status_ok "$(ha_task_get_message)"
@@ -175,6 +173,6 @@ ha_task_run_correction() {
 
     fi
 
-    "${correction_function}"
+    ha_task_run_function "${correction_function}"
 
 }

@@ -47,7 +47,7 @@ ha_task_sys001_check() {
 
     local updates
 
-    updates="$(apt-get -s upgrade | grep -c '^Inst ')"
+    updates="$(apt-get -s upgrade | grep -c '^Inst ' || true)"
 
 
     if [[ "${updates}" -eq 0 ]]; then
@@ -109,7 +109,7 @@ ha_task_sys001_verify() {
 
     local updates
 
-    updates="$(apt-get -s upgrade | grep -c '^Inst ')"
+    updates="$(apt-get -s upgrade | grep -c '^Inst ' || true)"
 
 
     if [[ "${updates}" -eq 0 ]]; then
