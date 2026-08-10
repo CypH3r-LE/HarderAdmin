@@ -188,5 +188,5 @@ ha_task_get_by_category() {
 
         fi
 
-    done
+    done | sort -V
 }
