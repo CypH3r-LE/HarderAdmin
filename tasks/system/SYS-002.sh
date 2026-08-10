@@ -26,6 +26,10 @@ ha_task_sys002_register() {
 
 ha_task_sys002_check() {
 
+    local config_file="/etc/apt/apt.conf.d/20auto-upgrades"
+    local unattended_file="/etc/apt/apt.conf.d/50unattended-upgrades"
+
+
     if ! command -v unattended-upgrade >/dev/null 2>&1; then
 
         ha_task_set_message "Automatic security updates are not installed."
@@ -36,8 +40,48 @@ ha_task_sys002_check() {
     fi
 
 
-    ha_task_set_message "Automatic security updates require verification."
-    ha_task_set_status "${HA_TASK_READY}"
+    if [[ ! -f "${config_file}" ]]; then
+
+        ha_task_set_message "Automatic security updates are not configured."
+        ha_task_set_status "${HA_TASK_READY}"
+
+        return 0
+
+    fi
+
+
+    if [[ ! -f "${unattended_file}" ]]; then
+
+        ha_task_set_message "Automatic security updates are not configured."
+        ha_task_set_status "${HA_TASK_READY}"
+
+        return 0
+
+    fi
+
+
+    if ! grep -q 'APT::Periodic::Update-Package-Lists "1";' "${config_file}"; then
+
+        ha_task_set_message "Automatic security updates are not fully configured."
+        ha_task_set_status "${HA_TASK_READY}"
+
+        return 0
+
+    fi
+
+
+    if ! grep -q 'APT::Periodic::Unattended-Upgrade "1";' "${config_file}"; then
+
+        ha_task_set_message "Automatic security updates are not fully configured."
+        ha_task_set_status "${HA_TASK_READY}"
+
+        return 0
+
+    fi
+
+
+    ha_task_set_message "Automatic security updates are already configured."
+    ha_task_set_status "${HA_TASK_COMPLETED}"
 
     return 0
 }

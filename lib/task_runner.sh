@@ -24,6 +24,7 @@ ha_task_execute() {
     local check_function
     local verify_function
     local correction_function
+    local execute_confirmed=false
 
     check_function="$(ha_task_get_check "${id}")"
     
@@ -38,8 +39,13 @@ fi
 
         "${HA_TASK_COMPLETED}")
             ha_status_ok "$(ha_task_get_message)"
-            ha_pause
-            return 0
+
+            if ! ha_ui_confirm "Execute task again"; then
+                ha_pause
+                return 0
+            fi
+
+            execute_confirmed=true
             ;;
 
         "${HA_TASK_BLOCKED}")
@@ -68,8 +74,12 @@ fi
     fi
 
 
-    if ! ha_ui_confirm "Execute task"; then
-        return 0
+    if [[ "${execute_confirmed}" != true ]]; then
+
+        if ! ha_ui_confirm "Execute task"; then
+            return 0
+        fi
+
     fi
 
 
