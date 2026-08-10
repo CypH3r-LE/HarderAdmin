@@ -26,6 +26,8 @@ ha_task_execute() {
     local correction_function
     local execute_confirmed=false
 
+    ha_task_clear_context "${id}"
+
     check_function="$(ha_task_get_check "${id}")"
     
 if [[ -n "${check_function}" ]]; then

@@ -64,6 +64,7 @@ ha_task_register() {
 
 HA_TASK_MESSAGE=""
 HA_TASK_STATUS=""
+declare -Ag HA_TASK_CONTEXT=()
 
 ha_task_set_message() {
 
@@ -88,6 +89,44 @@ ha_task_set_status() {
 ha_task_get_status() {
 
     printf "%s" "${HA_TASK_STATUS}"
+
+}
+
+ha_task_set_context() {
+
+    local id="$1"
+    local key="$2"
+    local value="$3"
+
+    HA_TASK_CONTEXT["${id}:${key}"]="${value}"
+
+}
+
+
+ha_task_get_context() {
+
+    local id="$1"
+    local key="$2"
+
+    printf "%s" "${HA_TASK_CONTEXT["${id}:${key}"]:-}"
+
+}
+
+
+ha_task_clear_context() {
+
+    local id="$1"
+    local key
+
+    for key in "${!HA_TASK_CONTEXT[@]}"; do
+
+        if [[ "${key}" == "${id}:"* ]]; then
+
+            unset 'HA_TASK_CONTEXT[$key]'
+
+        fi
+
+    done
 
 }
 
