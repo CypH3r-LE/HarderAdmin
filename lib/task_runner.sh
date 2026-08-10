@@ -73,11 +73,11 @@ fi
     fi
 
 
-    execute_function="$(ha_task_get_execute "${id}")"
+execute_function="$(ha_task_get_execute "${id}")"
 
-    ha_task_run_function "${execute_function}"
+ha_task_run_function "${execute_function}"
 
-    case "${HA_TASK_STATUS}" in
+case "${HA_TASK_STATUS}" in
 
     "${HA_TASK_COMPLETED}")
         ha_status_ok "$(ha_task_get_message)"
@@ -89,11 +89,6 @@ fi
         return 0
         ;;
 
-    *)
-        ha_pause
-        return 0
-        ;;
-
 esac
 
 
@@ -101,61 +96,62 @@ verify_function="$(ha_task_get_verify "${id}")"
 
 if [[ -n "${verify_function}" ]]; then
 
-            ha_task_run_function "${verify_function}"
+    ha_task_run_function "${verify_function}"
 
-            case "${HA_TASK_STATUS}" in
+    case "${HA_TASK_STATUS}" in
 
-                "${HA_TASK_COMPLETED}")
-                    ha_status_ok "$(ha_task_get_message)"
-                    ;;
+        "${HA_TASK_COMPLETED}")
+            ha_status_ok "$(ha_task_get_message)"
+            ;;
+
+        "${HA_TASK_ERROR}")
+            ha_status_fail "$(ha_task_get_message)"
+
+            correction_function="$(ha_task_get_correction "${id}")"
+
+            if [[ -n "${correction_function}" ]] \
+                && ha_ui_confirm "Apply correction"; then
+
+                ha_task_run_correction "${id}"
+
+                case "${HA_TASK_STATUS}" in
+
+                    "${HA_TASK_COMPLETED}")
+                        ha_status_ok "$(ha_task_get_message)"
+
+                        verify_function="$(ha_task_get_verify "${id}")"
+
+                        if [[ -n "${verify_function}" ]]; then
+
+                            ha_task_run_function "${verify_function}"
+
+                            case "${HA_TASK_STATUS}" in
+
+                                "${HA_TASK_COMPLETED}")
+                                    ha_status_ok "$(ha_task_get_message)"
+                                    ;;
+
+                                "${HA_TASK_ERROR}")
+                                    ha_status_fail "$(ha_task_get_message)"
+                                    ;;
+
+                            esac
+
+                        fi
+                        ;;
 
                     "${HA_TASK_ERROR}")
-                    ha_status_fail "$(ha_task_get_message)"
+                        ha_status_fail "$(ha_task_get_message)"
+                        ;;
 
-                    correction_function="$(ha_task_get_correction "${id}")"
+                esac
 
-                    if [[ -n "${correction_function}" ]] && ha_ui_confirm "Apply correction"; then
+            fi
+            ;;
 
-                        ha_task_run_correction "${id}"
+    esac
 
-                        case "${HA_TASK_STATUS}" in
-
-                            "${HA_TASK_COMPLETED}")
-                                ha_status_ok "$(ha_task_get_message)"
-
-                                verify_function="$(ha_task_get_verify "${id}")"
-
-                                if [[ -n "${verify_function}" ]]; then
-
-                                ha_task_run_function "${verify_function}"
-
-                                case "${HA_TASK_STATUS}" in
-
-                                        "${HA_TASK_COMPLETED}")
-                                            ha_status_ok "$(ha_task_get_message)"
-                                            ;;
-
-                                        "${HA_TASK_ERROR}")
-                                            ha_status_fail "$(ha_task_get_message)"
-                                            ;;
-
-                                    esac
-
-                                fi
-                                ;;
-
-                                                        "${HA_TASK_ERROR}")
-                                ha_status_fail "$(ha_task_get_message)"
-                                ;;
-
-                        esac
-
-                    fi
-                    ;;
-
-            esac
-
-        fi
+fi
 
     ha_pause
 }
@@ -168,6 +164,9 @@ ha_task_run_correction() {
     correction_function="$(ha_task_get_correction "${id}")"
 
     if [[ -z "${correction_function}" ]]; then
+
+        ha_task_set_status "${HA_TASK_COMPLETED}"
+        ha_task_set_message "No correction available."
 
         return 0
 
