@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - name: Syntax and ShellCheck
+        run: make check
+
+  smoke:
+    # Runs the read-only audit on supported distributions.
+    # Exit codes 1 (findings) and 2 (blocked/errors) are expected in containers.
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:22.04", "ubuntu:24.04", "debian:12"]
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trust the checkout (HarderAdmin refuses non-root-owned files)
+        run: chown -R root:root . && chmod -R go-w .
+      - name: Audit
+        run: |
+          set +e
+          ./harderadmin.sh --audit
+          code=$?
+          echo "audit exit code: ${code}"
+          [ "${code}" -le 2 ]
+      - name: Help and version
+        run: ./harderadmin.sh --help && ./harderadmin.sh --version

@@ -8,29 +8,25 @@
 
 ha_check_root() {
 
-    if [[ "${EUID}" -eq 0 ]]; then
-        return 0
-    fi
-
-    return 1
+    [[ "${EUID}" -eq 0 ]]
 }
 
 
 ha_check_config() {
 
-    if [[ -f "${HA_CONFIG_FILE}" ]]; then
-        return 0
-    fi
-
-    return 1
+    [[ -f "${HA_CONFIG_FILE}" ]]
 }
 
 
 ha_check_logging() {
 
-    if [[ -f "${HA_LOG_FILE}" ]]; then
-        return 0
-    fi
+    [[ -n "${HA_LOG_FILE}" && -w "${HA_LOG_FILE}" ]]
+}
 
-    return 1
+
+ha_check_backup() {
+
+    ha_backup_enabled \
+        && install -d -m 0700 -- "${BACKUP_DIR}" 2>/dev/null \
+        && [[ -w "${BACKUP_DIR}" ]]
 }

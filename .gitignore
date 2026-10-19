@@ -1,0 +1,9 @@
+# Runtime data (only created when HarderAdmin is configured with relative paths)
+logs/
+backups/
+
+# Editor / OS
+*.swp
+*~
+.vscode/
+.DS_Store

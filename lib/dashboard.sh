@@ -19,36 +19,29 @@ ha_dashboard_show_status() {
 
 
     if ha_check_os; then
-        ha_status_ok "Ubuntu system detected"
+        ha_status_ok "Supported system: $(ha_get_os_name)"
     else
-        ha_status_fail "Unsupported operating system"
+        ha_status_fail "Unsupported operating system: $(ha_get_os_name)"
     fi
 
 
     if ha_check_kernel; then
-        ha_status_ok "Kernel available"
+        ha_status_ok "Kernel $(ha_get_kernel) ($(ha_get_architecture))"
     else
         ha_status_warning "Kernel information unavailable"
     fi
 
     if ha_check_hostname; then
-        ha_status_ok "Hostname available"
+        ha_status_ok "Hostname: $(ha_get_hostname)"
     else
         ha_status_warning "Hostname unavailable"
     fi
 
 
-    if ha_check_architecture; then
-        ha_status_ok "Architecture detected"
-    else
-        ha_status_warning "Architecture unavailable"
-    fi
-
-
     if ha_check_network; then
-        ha_status_ok "Network reachable"
+        ha_status_ok "Default route available"
     else
-        ha_status_fail "Network unavailable"
+        ha_status_warning "No default route (offline?)"
     fi
 
 
@@ -59,28 +52,43 @@ ha_dashboard_show_status() {
     fi
 
 
+    if ha_check_systemd; then
+        ha_status_ok "systemd available"
+    else
+        ha_status_warning "systemd not running (container?)"
+    fi
+
+
     if ha_check_config; then
         ha_status_ok "Configuration loaded"
     else
-        ha_status_fail "Configuration missing"
+        ha_status_warning "Configuration missing, defaults in use"
     fi
 
 
     if ha_check_logging; then
-        ha_status_ok "Logging active"
+        ha_status_ok "Logging to ${HA_LOG_FILE}"
     else
-        ha_status_warning "No log file created yet"
+        ha_status_warning "Logging to file unavailable"
+    fi
+
+
+    if ha_check_backup; then
+        ha_status_ok "Backups enabled: ${BACKUP_DIR}"
+    else
+        ha_status_warning "Backups disabled - rollback is not possible"
+    fi
+
+
+    if ha_system_reboot_required; then
+        ha_status_warning "System reboot pending"
     fi
 }
 
 
 ha_dashboard_start() {
 
-    clear
-
     ha_draw_header
-    
-    echo
 
     ha_dashboard_show_status
 

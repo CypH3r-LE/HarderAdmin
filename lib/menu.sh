@@ -19,7 +19,7 @@ ha_menu_main() {
         ha_ui_menu_item 3 "Firewall"
         ha_ui_menu_item 4 "Fail2Ban"
         ha_ui_menu_item 5 "Backups"
-        ha_ui_menu_item 6 "Reports"
+        ha_ui_menu_item 6 "Reports (audit all tasks)"
 
         echo
 
@@ -27,7 +27,7 @@ ha_menu_main() {
 
         echo
 
-        read -rp "Select: " choice
+        ha_ui_read_choice choice
 
         case "${choice}" in
 
@@ -51,12 +51,12 @@ ha_menu_main() {
                 ;;
 
             5)
-                ha_ui_info "Backup module not available yet."
+                ha_ui_info "Backups are stored in ${BACKUP_DIR}."
                 ha_pause
                 ;;
 
             6)
-                ha_ui_info "Reports module not available yet."
+                ha_task_audit_report || true
                 ha_pause
                 ;;
 

@@ -16,8 +16,6 @@ ha_module_system_hardening_menu() {
 
     while true; do
 
-        clear
-
         ha_draw_header
 
         ha_ui_section "System Hardening"
@@ -27,20 +25,22 @@ ha_module_system_hardening_menu() {
 
         while IFS= read -r task_id; do
 
-            task_ids+=("${task_id}")
+            if [[ -n "${task_id}" ]]; then
+                task_ids+=("${task_id}")
+            fi
 
         done < <(ha_task_get_by_category "System")
 
 
         index=1
 
-        for task_id in "${task_ids[@]}"; do
+        for task_id in "${task_ids[@]+"${task_ids[@]}"}"; do
 
             ha_ui_menu_item \
                 "${index}" \
                 "${task_id} - $(ha_task_get_name "${task_id}")"
 
-            ((index++))
+            index=$(( index + 1 ))
 
         done
 
@@ -50,7 +50,7 @@ ha_module_system_hardening_menu() {
 
         echo
 
-        read -rp "Select: " choice
+        ha_ui_read_choice choice
 
 
         if [[ "${choice}" == "0" ]]; then
@@ -60,10 +60,11 @@ ha_module_system_hardening_menu() {
         fi
 
 
-        if [[ "${choice}" =~ ^[0-9]+$ ]] \
-            && (( choice >= 1 && choice <= ${#task_ids[@]} )); then
+        # 10# forces base 10: "08" would otherwise be an invalid octal number.
+        if [[ "${choice}" =~ ^[0-9]{1,3}$ ]] \
+            && (( 10#${choice} >= 1 && 10#${choice} <= ${#task_ids[@]} )); then
 
-            ha_task_execute "${task_ids[$((choice-1))]}"
+            ha_task_execute "${task_ids[$(( 10#${choice} - 1 ))]}" || true
 
         else
 

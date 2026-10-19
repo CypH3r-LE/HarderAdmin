@@ -15,16 +15,31 @@ readonly HA_MODULE_DIR
 readonly HA_TASK_DIR
 
 
-ha_load_library() {
+# ------------------------------------------------------------------------------
+# Source a file after checking that it can be trusted.
+# ------------------------------------------------------------------------------
 
-    local library="$1"
-    if [[ ! -f "${HA_LIB_DIR}/${library}" ]]; then
-        printf "%s\n" "Missing library: ${library}" >&2
+ha_load_file() {
+
+    local file="$1"
+
+    if [[ ! -f "${file}" ]]; then
+        printf "ERROR: Missing file: %s\n" "${file}" >&2
+        exit 1
+    fi
+
+    if ! ha_trust_check_file "${file}"; then
         exit 1
     fi
 
     # shellcheck disable=SC1090
-    source "${HA_LIB_DIR}/${library}"
+    source "${file}"
+}
+
+
+ha_load_library() {
+
+    ha_load_file "${HA_LIB_DIR}/$1"
 }
 
 
@@ -33,15 +48,17 @@ ha_load_libraries() {
     local libraries=(
         "colors.sh"
         "logger.sh"
+        "status.sh"
         "ui.sh"
         "common.sh"
         "config.sh"
-        "status.sh"
+        "backup.sh"
         "task_registry.sh"
-        task_runner.sh
+        "task_runner.sh"
         "checks.sh"
         "dashboard.sh"
         "menu.sh"
+        "cli.sh"
     )
 
     local library
@@ -51,65 +68,43 @@ ha_load_libraries() {
     done
 }
 
-ha_load_checks() {
 
-    local checks_dir="${HA_LIB_DIR}/checks"
+# ------------------------------------------------------------------------------
+# Source all *.sh files of a directory tree in a stable, sorted order.
+# ------------------------------------------------------------------------------
 
-    if [[ ! -d "${checks_dir}" ]]; then
+ha_load_directory() {
+
+    local directory="$1"
+    local file
+
+    if [[ ! -d "${directory}" ]]; then
         return 0
     fi
 
+    ha_trust_check_path "${directory}" || exit 1
 
-    local check_file
+    while IFS= read -r -d '' file; do
 
-    for check_file in "${checks_dir}"/*.sh; do
+        ha_load_file "${file}"
 
-        if [[ -f "${check_file}" ]]; then
-
-            # shellcheck disable=SC1090
-            source "${check_file}"
-
-        fi
-
-    done
+    done < <(find "${directory}" -type f -name "*.sh" -print0 | sort -z)
 }
+
+
+ha_load_checks() {
+
+    ha_load_directory "${HA_LIB_DIR}/checks"
+}
+
 
 ha_load_modules() {
 
-    local module_dir="${HA_MODULE_DIR}"
-
-    if [[ ! -d "${module_dir}" ]]; then
-        return 0
-    fi
-
-
-    local module
-
-    for module in "${module_dir}"/*.sh; do
-
-        if [[ -f "${module}" ]]; then
-
-            # shellcheck disable=SC1090
-            source "${module}"
-
-        fi
-
-    done
+    ha_load_directory "${HA_MODULE_DIR}"
 }
+
 
 ha_load_tasks() {
 
-    if [[ ! -d "${HA_TASK_DIR}" ]]; then
-        return 0
-    fi
-
-    local task
-
-    while IFS= read -r -d '' task; do
-
-        # shellcheck disable=SC1090
-        source "${task}"
-
-    done < <(find "${HA_TASK_DIR}" -type f -name "*.sh" -print0)
-
+    ha_load_directory "${HA_TASK_DIR}"
 }

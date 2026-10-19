@@ -5,6 +5,22 @@
 # lib/task_registry.sh
 # ==============================================================================
 #
+# Task contract
+# -------------
+# check       Determine the current state. Must NOT change the system.
+#             Sets READY, COMPLETED, BLOCKED, ERROR or NOT_APPLICABLE.
+# info        Print details before execution (optional).
+# execute     Apply the change. Call ha_backup_file before modifying a file.
+# verify      Check the result of execute. Sets COMPLETED or ERROR.
+# rollback    Hook that runs AFTER the runner restored the backed-up files
+#             (reload services, revert runtime values, remove created users).
+#             Optional.
+# correction  Repair a failed verification (optional).
+#
+# Task functions run with "set -e" disabled (they are called in a condition),
+# so every command whose failure matters must be checked explicitly.
+# Every function except info must set a status via ha_task_set_status.
+# ------------------------------------------------------------------------------
 
 declare -ag HA_TASK_IDS=()
 declare -Ag HA_TASK_NAME=()
@@ -33,21 +49,52 @@ ha_task_register() {
     local info_function="$9"
     local execute_function="${10}"
     local verify_function="${11}"
-    local rollback_function="${12}"
+    local rollback_function="${12:-}"
     local correction_function="${13:-}"
+    local function_name
+
+    if [[ ! "${id}" =~ ^[A-Z]{2,6}-[0-9]{3}$ ]]; then
+        printf "ERROR: Invalid task ID: %s\n" "${id}" >&2
+        return 1
+    fi
+
+    if ha_task_exists "${id}"; then
+        printf "ERROR: Duplicate task ID: %s\n" "${id}" >&2
+        return 1
+    fi
+
+    if [[ -z "${check_function}" || -z "${execute_function}" ]]; then
+        printf "ERROR: Task %s needs a check and an execute function.\n" \
+            "${id}" >&2
+        return 1
+    fi
+
+    for function_name in \
+        "${check_function}" \
+        "${info_function}" \
+        "${execute_function}" \
+        "${verify_function}" \
+        "${rollback_function}" \
+        "${correction_function}"
+    do
+
+        if [[ -n "${function_name}" ]] \
+            && ! declare -F "${function_name}" >/dev/null; then
+            printf "ERROR: Task %s: function not defined: %s\n" \
+                "${id}" "${function_name}" >&2
+            return 1
+        fi
+
+    done
 
     HA_TASK_IDS+=("${id}")
 
     HA_TASK_NAME["${id}"]="${name}"
     HA_TASK_CATEGORY["${id}"]="${category}"
     HA_TASK_DESCRIPTION["${id}"]="${description}"
-    # shellcheck disable=SC2034
     HA_TASK_INTERACTIVE["${id}"]="${interactive}"
-
-    # shellcheck disable=SC2034
     HA_TASK_REBOOT["${id}"]="${reboot}"
-
-    # shellcheck disable=SC2034
+    # shellcheck disable=SC2034 # reserved: default selection for batch runs
     HA_TASK_DEFAULT["${id}"]="${default}"
 
     HA_TASK_CHECK["${id}"]="${check_function}"
@@ -89,6 +136,27 @@ ha_task_set_status() {
 ha_task_get_status() {
 
     printf "%s" "${HA_TASK_STATUS}"
+
+}
+
+# Convenience: set status and message in one call.
+ha_task_result() {
+
+    ha_task_set_status "$1"
+    ha_task_set_message "$2"
+
+}
+
+ha_task_status_name() {
+
+    case "${1:-}" in
+        "${HA_TASK_READY}")          printf "READY" ;;
+        "${HA_TASK_COMPLETED}")      printf "OK" ;;
+        "${HA_TASK_BLOCKED}")        printf "BLOCKED" ;;
+        "${HA_TASK_ERROR}")          printf "ERROR" ;;
+        "${HA_TASK_NOT_APPLICABLE}") printf "N/A" ;;
+        *)                           printf "UNKNOWN" ;;
+    esac
 
 }
 
@@ -134,82 +202,87 @@ ha_task_clear_context() {
 # Task Getter
 # ------------------------------------------------------------------------------
 
+ha_task_exists() {
+
+    local id="${1:-}"
+
+    [[ "${id}" =~ ^[A-Z]{2,6}-[0-9]{3}$ && -v "HA_TASK_NAME[${id}]" ]]
+
+}
+
+
 ha_task_get_name() {
 
-    local id="$1"
-
-    printf "%s" "${HA_TASK_NAME[$id]}"
+    printf "%s" "${HA_TASK_NAME[${1}]:-}"
 
 }
 
 
 ha_task_get_category() {
 
-    local id="$1"
-
-    printf "%s" "${HA_TASK_CATEGORY[$id]}"
+    printf "%s" "${HA_TASK_CATEGORY[${1}]:-}"
 
 }
 
 
 ha_task_get_description() {
 
-    local id="$1"
+    printf "%s" "${HA_TASK_DESCRIPTION[${1}]:-}"
 
-    printf "%s" "${HA_TASK_DESCRIPTION[$id]}"
+}
+
+
+ha_task_get_interactive() {
+
+    printf "%s" "${HA_TASK_INTERACTIVE[${1}]:-false}"
+
+}
+
+
+ha_task_get_reboot() {
+
+    printf "%s" "${HA_TASK_REBOOT[${1}]:-}"
 
 }
 
 
 ha_task_get_execute() {
 
-    local id="$1"
-
-    printf "%s" "${HA_TASK_EXECUTE[$id]}"
+    printf "%s" "${HA_TASK_EXECUTE[${1}]:-}"
 
 }
 
 
 ha_task_get_check() {
 
-    local id="$1"
-
-    printf "%s" "${HA_TASK_CHECK[$id]}"
+    printf "%s" "${HA_TASK_CHECK[${1}]:-}"
 
 }
 
 
 ha_task_get_info() {
 
-    local id="$1"
-
-    printf "%s" "${HA_TASK_INFO[$id]}"
+    printf "%s" "${HA_TASK_INFO[${1}]:-}"
 
 }
 
 
 ha_task_get_verify() {
 
-    local id="$1"
-
-    printf "%s" "${HA_TASK_VERIFY[$id]}"
+    printf "%s" "${HA_TASK_VERIFY[${1}]:-}"
 
 }
 
 
 ha_task_get_rollback() {
 
-    local id="$1"
-
-    printf "%s" "${HA_TASK_ROLLBACK[$id]}"
+    printf "%s" "${HA_TASK_ROLLBACK[${1}]:-}"
 
 }
 
 ha_task_get_correction() {
 
-    local id="$1"
-
-    printf "%s" "${HA_TASK_CORRECTION[$id]}"
+    printf "%s" "${HA_TASK_CORRECTION[${1}]:-}"
 
 }
 
@@ -219,13 +292,21 @@ ha_task_get_by_category() {
     local category="$1"
     local id
 
-    for id in "${HA_TASK_IDS[@]}"; do
+    for id in "${HA_TASK_IDS[@]+"${HA_TASK_IDS[@]}"}"; do
 
-        if [[ "${HA_TASK_CATEGORY[$id]}" == "${category}" ]]; then
+        if [[ "${HA_TASK_CATEGORY[${id}]}" == "${category}" ]]; then
 
             printf "%s\n" "${id}"
 
         fi
 
     done | sort -V
+}
+
+
+ha_task_get_all() {
+
+    (( ${#HA_TASK_IDS[@]} > 0 )) || return 0
+
+    printf "%s\n" "${HA_TASK_IDS[@]}" | sort -V
 }
