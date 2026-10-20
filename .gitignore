@@ -7,4 +7,4 @@ backups/
 *~
 .vscode/
 .DS_Store
-harderadmin-review.patch
+*.patch

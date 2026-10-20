@@ -121,6 +121,11 @@ main() {
             exit "${exit_code}"
             ;;
 
+        rollback)
+            ha_task_rollback_target "${HA_CLI_ARGUMENT}" || exit 1
+            exit 0
+            ;;
+
         *)
             ha_dashboard_start
             ;;

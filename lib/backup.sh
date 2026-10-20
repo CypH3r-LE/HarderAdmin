@@ -160,3 +160,137 @@ ha_backup_restore_session() {
 
     return "${failed}"
 }
+
+
+# ------------------------------------------------------------------------------
+# Task context persistence
+#
+# The context of a task run (e.g. old sysctl values, created user, previous
+# SSH service mode) is stored in the session as "<key>\t<value>" lines, so a
+# rollback in a new process (timer, --rollback, Backups menu) can use it.
+# ------------------------------------------------------------------------------
+
+ha_backup_save_context() {
+
+    local id="$1"
+    local context_key
+    local key
+    local value
+    local file
+
+    if [[ -z "${HA_BACKUP_SESSION_DIR}" ]]; then
+        return 0
+    fi
+
+    file="${HA_BACKUP_SESSION_DIR}/context"
+
+    {
+        for context_key in "${!HA_TASK_CONTEXT[@]}"; do
+
+            [[ "${context_key}" == "${id}:"* ]] || continue
+
+            key="${context_key#"${id}:"}"
+            value="${HA_TASK_CONTEXT[${context_key}]}"
+
+            if [[ ! "${key}" =~ ^[A-Za-z0-9_.:/-]+$ \
+                || "${value}" == *$'\n'* || "${value}" == *$'\t'* ]]; then
+                ha_log_warn "[${id}] Context entry not saved: ${key}"
+                continue
+            fi
+
+            printf "%s\t%s\n" "${key}" "${value}"
+
+        done
+    } > "${file}" || return 1
+
+    chmod 0600 -- "${file}"
+}
+
+
+ha_backup_load_context() {
+
+    local id="$1"
+    local session="$2"
+    local key
+    local value
+
+    ha_task_clear_context "${id}"
+
+    [[ -f "${session}/context" ]] || return 0
+
+    while IFS=$'\t' read -r key value; do
+
+        [[ "${key}" =~ ^[A-Za-z0-9_.:/-]+$ ]] || continue
+
+        ha_task_set_context "${id}" "${key}" "${value}"
+
+    done < "${session}/context"
+}
+
+
+# ------------------------------------------------------------------------------
+# Session lookup
+# ------------------------------------------------------------------------------
+
+# Prints the newest session directory of a task.
+ha_backup_latest_session() {
+
+    local id="$1"
+
+    [[ -d "${BACKUP_DIR}/${id}" ]] || return 1
+
+    find "${BACKUP_DIR}/${id}" -mindepth 1 -maxdepth 1 -type d \
+        -exec test -f '{}/manifest' ';' -print 2>/dev/null \
+        | sort | tail -n 1 | grep . || return 1
+}
+
+
+# Prints all sessions as "<task id>\t<session dir>", newest first.
+ha_backup_list_sessions() {
+
+    local dir
+
+    [[ -d "${BACKUP_DIR}" ]] || return 0
+
+    while IFS= read -r dir; do
+
+        printf "%s\t%s\n" "$(basename -- "$(dirname -- "${dir}")")" "${dir}"
+
+    done < <(
+        find "${BACKUP_DIR}" -mindepth 2 -maxdepth 2 -type d \
+            -exec test -f '{}/manifest' ';' -print 2>/dev/null \
+            | awk -F/ '{ print $NF "\t" $0 }' | sort -r | cut -f2-
+    )
+}
+
+
+# ha_backup_use_session <session dir>
+# Validates that the directory is a session below BACKUP_DIR and makes it the
+# current session (HA_BACKUP_SESSION_DIR, HA_BACKUP_TASK_ID).
+# Do not call in a command substitution: it sets globals.
+ha_backup_use_session() {
+
+    local session="$1"
+    local real_session
+    local real_base
+    local id
+
+    real_session="$(readlink -f -- "${session}" 2>/dev/null)" || return 1
+    real_base="$(readlink -f -- "${BACKUP_DIR}" 2>/dev/null)" || return 1
+
+    if [[ "${real_session}" != "${real_base}/"*/* \
+        || ! -f "${real_session}/manifest" ]]; then
+        ha_log_error "Not a backup session: ${session}"
+        return 1
+    fi
+
+    id="$(basename -- "$(dirname -- "${real_session}")")"
+
+    if [[ ! "${id}" =~ ^[A-Z]{2,6}-[0-9]{3}$ ]]; then
+        ha_log_error "Invalid task ID in backup path: ${session}"
+        return 1
+    fi
+
+    HA_BACKUP_TASK_ID="${id}"
+    HA_BACKUP_SESSION_DIR="${real_session}"
+}

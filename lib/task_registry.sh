@@ -14,6 +14,9 @@
 # verify      Check the result of execute. Sets COMPLETED or ERROR.
 # rollback    Hook that runs AFTER the runner restored the backed-up files
 #             (reload services, revert runtime values, remove created users).
+#             May run in a NEW process (guard timer, --rollback, Backups
+#             menu): use only the task context (ha_task_get_context), which
+#             is saved with the backup, never other shell variables.
 #             Optional.
 # correction  Repair a failed verification (optional).
 #
@@ -309,4 +312,30 @@ ha_task_get_all() {
     (( ${#HA_TASK_IDS[@]} > 0 )) || return 0
 
     printf "%s\n" "${HA_TASK_IDS[@]}" | sort -V
+}
+
+
+# All tasks, grouped by category in menu order (HA_MENU_CATEGORIES), then
+# any other categories alphabetically.
+ha_task_get_ordered() {
+
+    local entry
+    local category
+    local known=" "
+
+    for entry in "${HA_MENU_CATEGORIES[@]+"${HA_MENU_CATEGORIES[@]}"}"; do
+
+        category="${entry%%:*}"
+        known+="${category} "
+        ha_task_get_by_category "${category}"
+
+    done
+
+    for category in $(printf "%s\n" "${HA_TASK_CATEGORY[@]+"${HA_TASK_CATEGORY[@]}"}" | sort -u); do
+
+        if [[ "${known}" != *" ${category} "* ]]; then
+            ha_task_get_by_category "${category}"
+        fi
+
+    done
 }

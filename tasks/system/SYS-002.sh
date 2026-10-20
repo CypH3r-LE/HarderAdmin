@@ -156,6 +156,7 @@ ha_task_sys002_write_config() {
     if ! cat > "${HA_SYS002_PERIODIC_FILE}" <<'EOF'
 // Managed by HarderAdmin (SYS-002)
 APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
 APT::Periodic::Unattended-Upgrade "1";
 APT::Periodic::AutocleanInterval "7";
 EOF

@@ -47,6 +47,58 @@ ha_command_exists() {
 }
 
 
+# True if a TCP port is in LISTEN state (IPv4 or IPv6).
+ha_port_listening() {
+
+    local port="$1"
+    local hex
+
+    if ha_command_exists ss; then
+        [[ -n "$(ss -H -tln "sport = :${port}" 2>/dev/null)" ]]
+        return
+    fi
+
+    local files=()
+    local file
+
+    printf -v hex "%04X" "${port}"
+
+    # /proc/net/tcp6 is missing when IPv6 is disabled.
+    for file in /proc/net/tcp /proc/net/tcp6; do
+        [[ -r "${file}" ]] && files+=("${file}")
+    done
+
+    (( ${#files[@]} > 0 )) || return 1
+
+    awk -v port=":${hex}" '
+        FNR > 1 && $4 == "0A" && substr($2, length($2) - 4) == port { found = 1 }
+        END { exit !found }
+    ' "${files[@]}"
+}
+
+
+# ha_wait_for <seconds> <command...>: retries a command once per second.
+ha_wait_for() {
+
+    local seconds="$1"
+    shift
+
+    while (( seconds-- > 0 )); do
+        "$@" && return 0
+        sleep 1
+    done
+
+    "$@"
+}
+
+
+ha_ufw_active() {
+
+    ha_command_exists ufw \
+        && LC_ALL=C ufw status 2>/dev/null | grep -q '^Status: active'
+}
+
+
 # apt-get without prompts: keeps existing config files on conflicts and waits
 # for a running apt/unattended-upgrades instead of failing on the lock.
 ha_apt_get() {

@@ -22,6 +22,8 @@ declare -Agr HA_CONFIG_DEFAULTS=(
     [BACKUP_ENABLED]="true"
     [BACKUP_DIR]="/var/lib/harderadmin/backups"
     [SYSCTL_RP_FILTER]="1"
+    [GUARD_TIMEOUT]="180"
+    [SSH_TCP_FORWARDING]="no"
 )
 
 declare -Agr HA_CONFIG_PATTERNS=(
@@ -33,6 +35,8 @@ declare -Agr HA_CONFIG_PATTERNS=(
     [BACKUP_ENABLED]='^(true|false)$'
     [BACKUP_DIR]='^/[A-Za-z0-9._/-]+$'
     [SYSCTL_RP_FILTER]='^[12]$'
+    [GUARD_TIMEOUT]='^([6-9][0-9]|[1-8][0-9]{2}|900)$'
+    [SSH_TCP_FORWARDING]='^(no|yes|local)$'
 )
 
 

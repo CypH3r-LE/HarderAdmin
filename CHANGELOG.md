@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.2.0] - Unreleased
+
+### Added
+- SSH module: SSH-001 baseline hardening, SSH-002 key-only authentication,
+  SSH-003 AllowUsers, SSH-004 port change.
+- Lockout guard (`lib/guard.sh`): systemd timer rolls SSH changes back unless
+  a new login is confirmed; works when the connection drops.
+- Lockout prevention: SSH tasks are blocked when no administrator could log
+  in afterwards (keys, password state, AllowUsers/DenyUsers/Groups).
+- `--rollback <TASK-ID>` and menu "Backups / Rollback"; the task context is
+  saved with each backup so rollbacks work in a new process.
+- SYS-003 can add an SSH key to an existing administrator; reports READY
+  while no administrator has a key.
+- Shared helpers for admin users (`lib/users.sh`) and ports (`ha_port_listening`).
+- Config: `GUARD_TIMEOUT`, `SSH_TCP_FORWARDING`.
+
+### Changed
+- Menus are generated from the task registry by category; audit output is
+  grouped by category. `modules/system_hardening.sh` removed.
+- SYS-002 also sets `APT::Periodic::Download-Upgradeable-Packages "1"` (guide).
+
+### Notes
+- SSH drop-ins use the `00-` prefix (wins over `50-cloud-init.conf`), one file
+  per task so rollbacks stay independent.
+- SSH-004 uses the socket generator of Ubuntu 24.04+ (`daemon-reload` +
+  restart `ssh.socket`) and falls back to the guide's method (disable
+  `ssh.socket`, enable `ssh.service`) when the generator is missing.
+
 ## [0.1.0] - Unreleased
 
 ### Fixed

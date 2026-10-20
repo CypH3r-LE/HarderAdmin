@@ -5,21 +5,18 @@
 # Task: SYS-003
 # ==============================================================================
 #
-# Creates a non-root administrator and optionally installs an SSH public key.
-# The SSH key matters: the SSH module will disable root and password logins,
-# without a key the server would no longer be reachable.
+# Creates a non-root administrator, or adds an SSH public key to an existing
+# one. The SSH key matters: SSH-002 disables password logins and is blocked
+# until at least one administrator has a key.
 # ------------------------------------------------------------------------------
-
-readonly HA_SYS003_ADMIN_GROUPS=("sudo" "wheel" "admin")
-
 
 ha_task_sys003_register() {
 
     ha_task_register \
     "SYS-003" \
-    "Create administrative user" \
+    "Administrative user and SSH key" \
     "System" \
-    "Create a non-root administrative user with sudo privileges and SSH key." \
+    "Create a non-root sudo administrator or add an SSH key to an existing one." \
     "true" \
     "false" \
     "true" \
@@ -31,60 +28,6 @@ ha_task_sys003_register() {
 }
 
 
-# Prints the admin group of this distribution (sudo on Debian/Ubuntu).
-ha_task_sys003_admin_group() {
-
-    local group
-
-    for group in "${HA_SYS003_ADMIN_GROUPS[@]}"; do
-
-        if getent group "${group}" >/dev/null 2>&1; then
-            printf "%s" "${group}"
-            return 0
-        fi
-
-    done
-
-    return 1
-}
-
-
-# Prints all non-root members (supplementary and primary) of a group.
-ha_task_sys003_group_members() {
-
-    local group="$1"
-    local entry
-    local gid
-    local members
-
-    entry="$(getent group "${group}" 2>/dev/null)" || return 0
-
-    gid="$(cut -d: -f3 <<< "${entry}")"
-    members="$(cut -d: -f4 <<< "${entry}")"
-
-    {
-        tr ',' '\n' <<< "${members}"
-        getent passwd | awk -F: -v gid="${gid}" '$4 == gid { print $1 }'
-    } | grep -vx -e '' -e 'root' | sort -u || true
-}
-
-
-ha_task_sys003_user_home() {
-
-    getent passwd "$1" | cut -d: -f6
-}
-
-
-ha_task_sys003_has_ssh_key() {
-
-    local home
-
-    home="$(ha_task_sys003_user_home "$1")"
-
-    [[ -n "${home}" && -s "${home}/.ssh/authorized_keys" ]]
-}
-
-
 ha_task_sys003_check() {
 
     local group
@@ -92,13 +35,13 @@ ha_task_sys003_check() {
     local user
     local without_key=()
 
-    if ! group="$(ha_task_sys003_admin_group)"; then
+    if ! group="$(ha_admin_group)"; then
         ha_task_result "${HA_TASK_BLOCKED}" \
             "No admin group (sudo/wheel) found. Is sudo installed?"
         return 0
     fi
 
-    admins="$(ha_task_sys003_group_members "${group}")"
+    admins="$(ha_group_members "${group}")"
 
     if [[ -z "${admins}" ]]; then
         ha_task_result "${HA_TASK_READY}" \
@@ -108,13 +51,19 @@ ha_task_sys003_check() {
 
     while IFS= read -r user; do
 
-        if ! ha_task_sys003_has_ssh_key "${user}"; then
+        if ! ha_user_has_ssh_key "${user}"; then
             without_key+=("${user}")
         fi
 
     done <<< "${admins}"
 
     admins="$(paste -sd ' ' <<< "${admins}")"
+
+    if [[ "$(ha_admin_users_with_key | head -n 1)" == "" ]]; then
+        ha_task_result "${HA_TASK_READY}" \
+            "Administrator(s) ${admins} without SSH key (needed before SSH-002)."
+        return 0
+    fi
 
     if (( ${#without_key[@]} > 0 )); then
         ha_task_result "${HA_TASK_COMPLETED}" \
@@ -130,8 +79,10 @@ ha_task_sys003_check() {
 ha_task_sys003_info() {
 
     ha_ui_info "$(ha_task_get_message)"
-    ha_ui_info "You will be asked for a username, a password and optionally"
-    ha_ui_info "an SSH public key (e.g. the content of ~/.ssh/id_ed25519.pub)."
+    ha_ui_info "New user     : you set a password, the SSH key is optional."
+    ha_ui_info "Existing admin: an SSH key is added to ~/.ssh/authorized_keys."
+    ha_ui_info "Paste the PUBLIC key from your workstation, e.g. ~/.ssh/id_ed25519.pub"
+    ha_ui_info "(create one with: ssh-keygen -t ed25519)."
 }
 
 
@@ -169,15 +120,28 @@ ha_task_sys003_install_ssh_key() {
     local home
     local group
 
-    home="$(ha_task_sys003_user_home "${username}")"
+    home="$(ha_user_home "${username}")"
     group="$(id -gn "${username}")"
 
     if [[ -z "${home}" || ! -d "${home}" ]]; then
         return 1
     fi
 
+    # Root writes into a directory the user controls: never follow symlinks.
+    if [[ -L "${home}/.ssh" || -L "${home}/.ssh/authorized_keys" ]]; then
+        ha_log_error "Refusing symlinked ~/.ssh or authorized_keys of ${username}."
+        return 1
+    fi
+
     install -d -m 0700 -o "${username}" -g "${group}" -- "${home}/.ssh" \
         || return 1
+
+    ha_backup_file "${home}/.ssh/authorized_keys" || return 1
+
+    if [[ -f "${home}/.ssh/authorized_keys" ]] \
+        && grep -qxF -- "${key}" "${home}/.ssh/authorized_keys"; then
+        return 0
+    fi
 
     printf "%s\n" "${key}" >> "${home}/.ssh/authorized_keys" || return 1
 
@@ -193,8 +157,9 @@ ha_task_sys003_execute() {
     local username
     local group
     local ssh_key
+    local existing=false
 
-    if ! group="$(ha_task_sys003_admin_group)"; then
+    if ! group="$(ha_admin_group)"; then
         ha_task_result "${HA_TASK_ERROR}" "No admin group (sudo/wheel) found."
         return 0
     fi
@@ -211,27 +176,40 @@ ha_task_sys003_execute() {
     fi
 
     if getent passwd "${username}" >/dev/null 2>&1; then
-        ha_task_result "${HA_TASK_ERROR}" "User ${username} already exists."
-        return 0
-    fi
 
-    if ! useradd --create-home --shell /bin/bash \
-        --groups "${group}" -- "${username}"; then
-        ha_task_result "${HA_TASK_ERROR}" "Unable to create user ${username}."
-        return 0
-    fi
+        if [[ " $(id -nG -- "${username}" 2>/dev/null) " != *" ${group} "* ]]; then
+            ha_task_result "${HA_TASK_ERROR}" \
+                "User ${username} exists but is not in group '${group}'."
+            return 0
+        fi
 
-    # From here on, a failure can be rolled back by deleting the user.
-    ha_task_set_context "SYS-003" "username" "${username}"
-    ha_task_set_context "SYS-003" "created" "true"
-    ha_log_change "SYS-003" "Created user ${username} (group ${group})"
+        ha_ui_info "${username} is an existing administrator: adding an SSH key."
+        existing=true
 
-    echo
+        ha_task_set_context "SYS-003" "username" "${username}"
+        ha_task_set_context "SYS-003" "created" "false"
 
-    if ! passwd -- "${username}"; then
-        ha_task_result "${HA_TASK_ERROR}" \
-            "Unable to set password for ${username}."
-        return 0
+    else
+
+        if ! useradd --create-home --shell /bin/bash \
+            --groups "${group}" -- "${username}"; then
+            ha_task_result "${HA_TASK_ERROR}" "Unable to create user ${username}."
+            return 0
+        fi
+
+        # From here on, a failure can be rolled back by deleting the user.
+        ha_task_set_context "SYS-003" "username" "${username}"
+        ha_task_set_context "SYS-003" "created" "true"
+        ha_log_change "SYS-003" "Created user ${username} (group ${group})"
+
+        echo
+
+        if ! passwd -- "${username}"; then
+            ha_task_result "${HA_TASK_ERROR}" \
+                "Unable to set password for ${username}."
+            return 0
+        fi
+
     fi
 
     echo
@@ -255,10 +233,20 @@ ha_task_sys003_execute() {
 
         ha_task_set_context "SYS-003" "ssh_key" "true"
 
+    elif [[ "${existing}" == true ]]; then
+
+        ha_task_result "${HA_TASK_ERROR}" "No SSH key entered."
+        return 0
+
     else
 
         ha_ui_warning "No SSH key installed. Add one before hardening SSH."
 
+    fi
+
+    if [[ "${existing}" == true ]]; then
+        ha_task_result "${HA_TASK_COMPLETED}" "SSH key added for ${username}."
+        return 0
     fi
 
     ha_task_result "${HA_TASK_COMPLETED}" \
@@ -285,7 +273,7 @@ ha_task_sys003_verify() {
         return 0
     fi
 
-    group="$(ha_task_sys003_admin_group)" || group="sudo"
+    group="$(ha_admin_group)" || group="sudo"
     groups=" $(id -nG "${username}" 2>/dev/null) "
 
     if [[ "${groups}" != *" ${group} "* ]]; then
@@ -295,7 +283,7 @@ ha_task_sys003_verify() {
     fi
 
     if [[ "$(ha_task_get_context "SYS-003" "ssh_key")" == "true" ]] \
-        && ! ha_task_sys003_has_ssh_key "${username}"; then
+        && ! ha_user_has_ssh_key "${username}"; then
         ha_task_result "${HA_TASK_ERROR}" \
             "SSH key for ${username} is missing."
         return 0
@@ -313,9 +301,10 @@ ha_task_sys003_rollback() {
 
     username="$(ha_task_get_context "SYS-003" "username")"
 
+    # An added key was already removed by restoring authorized_keys.
     if [[ "$(ha_task_get_context "SYS-003" "created")" != "true" \
         || -z "${username}" ]]; then
-        ha_task_result "${HA_TASK_COMPLETED}" "Nothing to roll back."
+        ha_task_result "${HA_TASK_COMPLETED}" "No user to remove."
         return 0
     fi
 

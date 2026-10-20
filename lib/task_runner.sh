@@ -187,11 +187,15 @@ ha_task_execute() {
     # --- execute --------------------------------------------------------------
 
     ha_backup_begin "${id}"
+    HA_GUARD_REVERTED=false
 
     ha_log_info "[${id}] Execution started."
 
     ha_task_run_phase "${id}" execute
     ha_task_report_status
+
+    # Keep the task context with the backups for a later rollback.
+    ha_backup_save_context "${id}" || true
 
     if [[ "${HA_TASK_STATUS}" != "${HA_TASK_COMPLETED}" ]]; then
         ha_task_offer_rollback "${id}"
@@ -244,6 +248,11 @@ ha_task_offer_rollback() {
 
     rollback_function="$(ha_task_get_rollback "${id}")"
 
+    # The lockout guard already rolled back.
+    if [[ "${HA_GUARD_REVERTED:-false}" == true ]]; then
+        return 0
+    fi
+
     if ! ha_backup_session_has_files && [[ -z "${rollback_function}" ]]; then
         return 0
     fi
@@ -267,6 +276,8 @@ ha_task_rollback() {
     if ha_backup_session_has_files; then
 
         if ha_backup_restore_session; then
+            date '+%Y-%m-%d %H:%M:%S' > "${HA_BACKUP_SESSION_DIR}/rolled_back" \
+                2>/dev/null || true
             ha_status_ok "Backed-up files restored."
         else
             restore_ok=false
@@ -276,11 +287,59 @@ ha_task_rollback() {
     fi
 
     ha_task_run_phase "${id}" rollback
+
+    if [[ -z "${HA_TASK_MESSAGE}" ]]; then
+        ha_task_set_message "Rollback of ${id} completed."
+    fi
+
     ha_task_report_status
 
     if [[ "${restore_ok}" != true ]]; then
         ha_task_set_status "${HA_TASK_ERROR}"
     fi
+}
+
+
+# ha_task_rollback_target <TASK-ID | backup session dir>
+# Non-interactive rollback used by --rollback, the guard timer and the
+# Backups menu. Returns 0 on success.
+ha_task_rollback_target() {
+
+    local target="$1"
+    local session
+    local id
+
+    if [[ "${target}" =~ ^[A-Z]{2,6}-[0-9]{3}$ ]]; then
+
+        if ! session="$(ha_backup_latest_session "${target}")"; then
+            ha_status_fail "No backup found for ${target}."
+            return 1
+        fi
+
+    else
+        session="${target}"
+    fi
+
+    if ! ha_backup_use_session "${session}"; then
+        ha_status_fail "Not a valid backup session: ${session}"
+        return 1
+    fi
+
+    id="${HA_BACKUP_TASK_ID}"
+
+    if ! ha_task_exists "${id}"; then
+        ha_status_fail "Unknown task in backup: ${id}"
+        return 1
+    fi
+
+    ha_backup_load_context "${id}" "${HA_BACKUP_SESSION_DIR}"
+
+    ha_log_warn "[${id}] Rollback of ${HA_BACKUP_SESSION_DIR} started."
+    ha_status_info "Rolling back ${id} ($(basename -- "${HA_BACKUP_SESSION_DIR}"))"
+
+    ha_task_rollback "${id}"
+
+    [[ "${HA_TASK_STATUS}" == "${HA_TASK_COMPLETED}" ]]
 }
 
 
@@ -322,11 +381,21 @@ ha_task_audit_report() {
     local count_error=0
     local count_na=0
 
+    local category
+    local last_category=""
+
     ha_ui_section "HarderAdmin Audit - $(hostname) - $(date '+%Y-%m-%d %H:%M')"
 
     while IFS= read -r id; do
 
         [[ -n "${id}" ]] || continue
+
+        category="$(ha_task_get_category "${id}")"
+
+        if [[ "${category}" != "${last_category}" ]]; then
+            printf "\n%b[%s]%b\n" "${HA_COLOR_WHITE}" "${category}" "${HA_COLOR_RESET}"
+            last_category="${category}"
+        fi
 
         ha_task_clear_context "${id}"
         ha_task_run_phase "${id}" check
@@ -354,14 +423,15 @@ ha_task_audit_report() {
                 ;;
         esac
 
-        printf "%-8s %b%-8s%b %-30s %s\n" \
+        printf "%-8s %b%-8s%b %-32s %s\n" \
             "${id}" \
             "${color}" "${status_name}" "${HA_COLOR_RESET}" \
             "$(ha_task_get_name "${id}")" \
             "${HA_TASK_MESSAGE}"
 
-    done < <(ha_task_get_all)
+    done < <(ha_task_get_ordered)
 
+    echo
     ha_ui_line
     printf "OK: %d   Findings: %d   Errors/Blocked: %d   N/A: %d\n" \
         "${count_ok}" "${count_ready}" "${count_error}" "${count_na}"
